@@ -185,9 +185,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.name }}-Linux-AppImage
-          path: ${{ inputs.name }}.AppImage
-          retention-days: 3
-          if-no-files-found: ignore
+          path: src-tauri/target/release/bundle/appimage/*.AppImage
 
       - name: Upload MSI (Windows)
         if: runner.os == 'Windows'
