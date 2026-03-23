@@ -185,7 +185,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.name }}-Linux-AppImage
-          path: src-tauri/target/release/bundle/appimage/*.AppImage
+          path: "*.AppImage"
 
       - name: Upload MSI (Windows)
         if: runner.os == 'Windows'
