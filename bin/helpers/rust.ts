@@ -5,9 +5,9 @@ import chalk from 'chalk';
 import { execaSync } from 'execa';
 
 import { getSpinner } from '@/utils/info';
+import { isCnMirrorEnabled } from '@/utils/mirror';
 import { IS_WIN } from '@/utils/platform';
 import { shellExec } from '@/utils/shell';
-import { isChinaDomain } from '@/utils/ip';
 
 function normalizePathForComparison(targetPath: string) {
   const normalized = path.normalize(targetPath);
@@ -68,32 +68,58 @@ export function ensureRustEnv() {
 }
 
 export async function installRust() {
-  const isActions = process.env.GITHUB_ACTIONS;
-  const isInChina = await isChinaDomain('sh.rustup.rs');
-  const rustInstallScriptForMac =
-    isInChina && !isActions
-      ? 'export RUSTUP_DIST_SERVER="https://rsproxy.cn" && export RUSTUP_UPDATE_ROOT="https://rsproxy.cn/rustup" && curl --proto "=https" --tlsv1.2 -sSf https://rsproxy.cn/rustup-init.sh | sh'
-      : "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y";
-  const rustInstallScriptForWindows = 'winget install --id Rustlang.Rustup';
-
   const spinner = getSpinner('Downloading Rust...');
 
   try {
-    await shellExec(
-      IS_WIN ? rustInstallScriptForWindows : rustInstallScriptForMac,
-      300000,
-      undefined,
-    );
+    if (IS_WIN) {
+      await shellExec({
+        executable: 'winget',
+        args: ['install', '--id', 'Rustlang.Rustup'],
+      });
+    } else {
+      const useCnMirror = isCnMirrorEnabled();
+      const tempDir = await fsExtra.mkdtemp(
+        path.join(os.tmpdir(), 'pake-rustup-'),
+      );
+      try {
+        const scriptPath = path.join(tempDir, 'rustup-init.sh');
+        await shellExec({
+          executable: 'curl',
+          args: [
+            '--proto',
+            '=https',
+            '--tlsv1.2',
+            '-sSf',
+            '-o',
+            scriptPath,
+            useCnMirror
+              ? 'https://rsproxy.cn/rustup-init.sh'
+              : 'https://sh.rustup.rs',
+          ],
+        });
+        await shellExec(
+          {
+            executable: 'sh',
+            args: useCnMirror ? [scriptPath] : [scriptPath, '-y'],
+          },
+          300000,
+          useCnMirror
+            ? {
+                RUSTUP_DIST_SERVER: 'https://rsproxy.cn',
+                RUSTUP_UPDATE_ROOT: 'https://rsproxy.cn/rustup',
+              }
+            : undefined,
+        );
+      } finally {
+        await fsExtra.remove(tempDir);
+      }
+    }
     spinner.succeed(chalk.green('✔ Rust installed successfully!'));
     ensureRustEnv();
   } catch (error) {
     spinner.fail(chalk.red('✕ Rust installation failed!'));
-    if (error instanceof Error) {
-      console.error(error.message);
-    } else {
-      console.error(error);
-    }
-    process.exit(1);
+    // The CLI owns error reporting and workspace/cache cleanup.
+    throw error;
   }
 }
 

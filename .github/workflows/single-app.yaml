@@ -30,6 +30,18 @@ on:
         description: "Allow sites to open new windows"
         required: false
         default: false
+      incognito:
+        description: "Enable incognito mode"
+        required: false
+        default: false
+      width:
+        description: "Window width"
+        required: false
+        default: 1200
+      height:
+        description: "Window height"
+        required: false
+        default: 780
   workflow_call:
     inputs:
       name:
@@ -61,6 +73,21 @@ on:
         type: boolean
         required: false
         default: false
+      incognito:
+        description: "Enable incognito mode"
+        type: boolean
+        required: false
+        default: false
+      width:
+        description: "Window width"
+        type: number
+        required: false
+        default: 1200
+      height:
+        description: "Window height"
+        type: number
+        required: false
+        default: 780
     secrets:
       PAKE_SIGNING_IDENTITY:
         required: false
@@ -96,11 +123,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ matrix.rust }}
 
       - name: Setup Node.js Environment
         uses: ./.github/actions/setup-env
@@ -187,7 +209,14 @@ jobs:
             ARGS+=("--new-window")
           fi
 
-          # Build once with multiple targets (faster than separate builds)
+          if [ "${{ inputs.incognito }}" = "true" ]; then
+            ARGS+=("--incognito")
+          fi
+
+          ARGS+=("--width" "${{ inputs.width }}")
+          ARGS+=("--height" "${{ inputs.height }}")
+
+          # Compile once, then bundle each requested format independently.
           node dist/cli.js "${ARGS[@]}" --targets deb,appimage
 
           mkdir -p output/linux
@@ -233,6 +262,13 @@ jobs:
           if [ "${{ inputs.new_window }}" = "true" ]; then
             ARGS+=("--new-window")
           fi
+
+          if [ "${{ inputs.incognito }}" = "true" ]; then
+            ARGS+=("--incognito")
+          fi
+
+          ARGS+=("--width" "${{ inputs.width }}")
+          ARGS+=("--height" "${{ inputs.height }}")
 
           node dist/cli.js "${ARGS[@]}" --targets universal --multi-arch
 
@@ -302,6 +338,13 @@ jobs:
           if ("${{ inputs.new_window }}" -eq "true") {
             $args += "--new-window"
           }
+
+          if ("${{ inputs.incognito }}" -eq "true") {
+            $args += "--incognito"
+          }
+
+          $args += "--width", "${{ inputs.width }}"
+          $args += "--height", "${{ inputs.height }}"
 
           $args += "--targets", "x64"
 

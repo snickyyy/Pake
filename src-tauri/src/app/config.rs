@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 pub struct WindowConfig {
     pub url: String,
     pub hide_title_bar: bool,
+    #[serde(default)]
+    pub hide_window_decorations: bool,
     pub fullscreen: bool,
     pub maximize: bool,
     pub width: f64,
@@ -26,6 +28,8 @@ pub struct WindowConfig {
     pub force_internal_navigation: bool,
     #[serde(default)]
     pub internal_url_regex: String,
+    #[serde(default)]
+    pub enable_find: bool,
     #[serde(default = "default_zoom")]
     pub zoom: u32,
     #[serde(default)]
@@ -79,6 +83,13 @@ pub struct PakeConfig {
     pub system_tray: FunctionON,
     pub system_tray_path: String,
     pub proxy_url: String,
+    #[serde(default)]
+    pub download_dir: String,
+    /// Prompt for HTTP Basic credentials at runtime on macOS. WKWebView does
+    /// not provide its own 401 login dialog, while Windows and Linux WebViews
+    /// handle this flow natively.
+    #[serde(default)]
+    pub basic_auth: bool,
     #[serde(default)]
     pub multi_instance: bool,
     #[serde(default)]

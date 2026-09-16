@@ -1,10 +1,7 @@
 import chalk from 'chalk';
 import { program, Option } from 'commander';
 import packageJson from '../../package.json';
-import {
-  DEFAULT_PAKE_OPTIONS as DEFAULT,
-  DEFAULT_PAKE_OPTIONS,
-} from '../defaults';
+import { DEFAULT_PAKE_OPTIONS as DEFAULT } from '../defaults';
 import { validateNumberInput, validateUrlInput } from '../utils/validate';
 
 export function getCliProgram() {
@@ -19,6 +16,7 @@ ${green('|_|   \\__,_|_|\\_\\___|  can turn any webpage into a desktop app with 
   return program
     .addHelpText('beforeAll', logo)
     .usage(`[url] [options]`)
+    .helpOption('-h, --help', 'Show all CLI options')
     .showHelpAfterError()
     .argument('[url]', 'The web URL you want to package', validateUrlInput)
     .option('--name <string>', 'Application name')
@@ -48,6 +46,11 @@ ${green('|_|   \\__,_|_|\\_\\___|  can turn any webpage into a desktop app with 
     )
     .option('--fullscreen', 'Start in full screen', DEFAULT.fullscreen)
     .option('--hide-title-bar', 'For Mac, hide title bar', DEFAULT.hideTitleBar)
+    .option(
+      '--hide-window-decorations',
+      'Hide native window decorations on Windows and Linux',
+      DEFAULT.hideWindowDecorations,
+    )
     .option('--multi-arch', 'For Mac, both Intel and M1', DEFAULT.multiArch)
     .option(
       '--inject <files>',
@@ -66,13 +69,35 @@ ${green('|_|   \\__,_|_|\\_\\___|  can turn any webpage into a desktop app with 
       },
       DEFAULT.inject,
     )
+    .option(
+      '--download-dir <path>',
+      'App download directory (absolute path or ~/path; default: system Downloads)',
+      DEFAULT.downloadDir,
+    )
     .option('--debug', 'Debug build and more output', DEFAULT.debug)
+    .option(
+      '--json',
+      'Machine-readable output: logs to stderr, one JSON result on stdout',
+      DEFAULT.json,
+    )
+    .option(
+      '--config <path>',
+      'Load options from a JSON config file (fields mirror CLI options, see schema/pake.schema.json)',
+    )
+    .addOption(
+      new Option(
+        '--basic-auth',
+        'Prompt for HTTP Basic credentials at runtime (macOS only)',
+      )
+        .default(DEFAULT.basicAuth)
+        .hideHelp(),
+    )
     .addOption(
       new Option(
         '--proxy-url <url>',
         'Proxy URL for all network requests (http://, https://, socks5://)',
       )
-        .default(DEFAULT_PAKE_OPTIONS.proxyUrl)
+        .default(DEFAULT.proxyUrl)
         .hideHelp(),
     )
     .addOption(
@@ -105,7 +130,10 @@ ${green('|_|   \\__,_|_|\\_\\___|  can turn any webpage into a desktop app with 
         .hideHelp(),
     )
     .addOption(
-      new Option('--dark-mode', 'Force Mac app to use dark mode')
+      new Option(
+        '--dark-mode',
+        'Force app to use dark mode (supports macOS, Windows, and Linux)',
+      )
         .default(DEFAULT.darkMode)
         .hideHelp(),
     )
@@ -116,7 +144,7 @@ ${green('|_|   \\__,_|_|\\_\\___|  can turn any webpage into a desktop app with 
     )
     .addOption(
       new Option('--activation-shortcut <string>', 'Shortcut key to active App')
-        .default(DEFAULT_PAKE_OPTIONS.activationShortcut)
+        .default(DEFAULT.activationShortcut)
         .hideHelp(),
     )
     .addOption(
@@ -165,6 +193,14 @@ ${green('|_|   \\__,_|_|\\_\\___|  can turn any webpage into a desktop app with 
         .hideHelp(),
     )
     .addOption(
+      new Option(
+        '--no-bundle',
+        'Skip packaging, output only the raw executable (Linux; for RPM distros where the bundler aborts)',
+      )
+        .default(DEFAULT.bundle)
+        .hideHelp(),
+    )
+    .addOption(
       new Option('--multi-instance', 'Allow multiple app instances')
         .default(DEFAULT.multiInstance)
         .hideHelp(),
@@ -186,16 +222,26 @@ ${green('|_|   \\__,_|_|\\_\\___|  can turn any webpage into a desktop app with 
       new Option(
         '--force-internal-navigation',
         'Keep every link inside the Pake window instead of opening external handlers',
-      )
-        .default(DEFAULT.forceInternalNavigation)
-        .hideHelp(),
+      ).default(DEFAULT.forceInternalNavigation),
     )
     .addOption(
       new Option(
         '--internal-url-regex <string>',
         'Regex pattern to match URLs that should be considered internal',
+      ).default(DEFAULT.internalUrlRegex),
+    )
+    .addOption(
+      new Option(
+        '--safe-domain <domains>',
+        'Comma-separated domains kept inside the app (e.g. SSO/workspace callbacks)',
+      ).default(DEFAULT.safeDomain),
+    )
+    .addOption(
+      new Option(
+        '--enable-find',
+        'Enable in-page Find UI with Cmd/Ctrl+F/G shortcuts',
       )
-        .default(DEFAULT.internalUrlRegex)
+        .default(DEFAULT.enableFind)
         .hideHelp(),
     )
     .addOption(
@@ -207,9 +253,9 @@ ${green('|_|   \\__,_|_|\\_\\___|  can turn any webpage into a desktop app with 
       new Option('--zoom <number>', 'Initial page zoom level (50-200)')
         .default(DEFAULT.zoom)
         .argParser((value) => {
-          const zoom = parseInt(value);
-          if (isNaN(zoom) || zoom < 50 || zoom > 200) {
-            throw new Error('--zoom must be a number between 50 and 200');
+          const zoom = Number(value);
+          if (!Number.isInteger(zoom) || zoom < 50 || zoom > 200) {
+            throw new Error('--zoom must be an integer between 50 and 200');
           }
           return zoom;
         })
@@ -247,14 +293,15 @@ ${green('|_|   \\__,_|_|\\_\\___|  can turn any webpage into a desktop app with 
       new Option(
         '--new-window',
         'Allow sites to open new windows (for auth flows, tabs, branches)',
-      )
-        .default(DEFAULT.newWindow)
-        .hideHelp(),
+      ).default(DEFAULT.newWindow),
     )
-    .option(
-      '--install',
-      'Auto-install app to /Applications (macOS) after build and remove local bundle',
-      DEFAULT.install,
+    .addOption(
+      new Option(
+        '--install',
+        'Auto-install app to /Applications (macOS) after build and remove local bundle',
+      )
+        .default(DEFAULT.install)
+        .hideHelp(),
     )
     .addOption(
       new Option('--camera', 'Request camera permission on macOS')
@@ -269,14 +316,19 @@ ${green('|_|   \\__,_|_|\\_\\___|  can turn any webpage into a desktop app with 
     .version(packageJson.version, '-v, --version')
     .configureHelp({
       sortSubcommands: true,
+      visibleOptions: (command) => {
+        const options = [...command.options];
+        const helpOption = (command as unknown as { _helpOption?: Option })
+          ._helpOption;
+        if (helpOption) {
+          options.push(helpOption);
+        }
+        return options;
+      },
       optionTerm: (option) => {
-        if (option.flags === '-v, --version' || option.flags === '-h, --help')
-          return '';
         return option.flags;
       },
       optionDescription: (option) => {
-        if (option.flags === '-v, --version' || option.flags === '-h, --help')
-          return '';
         return option.description;
       },
     });

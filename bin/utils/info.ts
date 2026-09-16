@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import prompts from 'prompts';
 import ora from 'ora';
 import chalk from 'chalk';
+import { isMachineMode } from './output';
 
 // Generates a stable identifier based on the app URL (and optionally name).
 // When name is provided it is included in the hash so two apps wrapping
@@ -14,7 +15,7 @@ export function getIdentifier(url: string, name?: string) {
     .update(hashInput)
     .digest('hex')
     .substring(0, 6);
-  return `com.pake.${postFixHash}`;
+  return `com.pake.a${postFixHash}`;
 }
 
 export function resolveIdentifier(
@@ -24,6 +25,12 @@ export function resolveIdentifier(
 ) {
   const trimmedIdentifier = customIdentifier?.trim();
   if (trimmedIdentifier) {
+    if (!/^[a-zA-Z][a-zA-Z0-9.-]*[a-zA-Z0-9]$/.test(trimmedIdentifier)) {
+      throw new Error(
+        `Invalid identifier "${trimmedIdentifier}". Must start with a letter, ` +
+          `contain only letters, digits, hyphens, and dots, and end with a letter or digit.`,
+      );
+    }
     return trimmedIdentifier;
   }
 
@@ -56,5 +63,7 @@ export function getSpinner(text: string) {
     text: `${chalk.cyan(text)}\n`,
     spinner: loadingType,
     color: 'cyan',
+    // In machine mode stdout must stay parseable and stderr low-noise.
+    isSilent: isMachineMode(),
   }).start();
 }

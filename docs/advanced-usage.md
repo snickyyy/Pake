@@ -83,7 +83,7 @@ Send messages between web content and Pake container.
 **Web Side (JavaScript):**
 
 ```javascript
-window.__TAURI__.invoke("handle_scroll", {
+window.__TAURI__.core.invoke("handle_scroll", {
   scrollY: window.scrollY,
   scrollX: window.scrollX,
 });
@@ -104,25 +104,34 @@ Configure window properties in `pake.json`:
 
 ```json
 {
-  "windows": {
-    "width": 1200,
-    "height": 780,
-    "fullscreen": false,
-    "resizable": true
-  },
-  "hideTitleBar": true
+  "windows": [
+    {
+      "width": 1200,
+      "height": 780,
+      "fullscreen": false,
+      "resizable": true,
+      "hide_title_bar": true
+    }
+  ]
 }
 ```
+
+`hide_title_bar` is the `pake.json` key (the CLI exposes it as `--hide-title-bar`). It is only supported on macOS and is ignored on Windows and Linux. Use `hide_window_decorations` (`--hide-window-decorations`) for frameless windows on Windows and Linux.
 
 ## Static File Packaging
 
 Package local HTML/CSS/JS files:
 
 ```bash
+# A whole directory of static files (must contain index.html at its root),
+# e.g. the dist/ output of a web build. The full tree is packaged.
+pake ./dist --name my-tool
+
+# A single HTML file; add --use-local-file to also copy its sibling files
 pake ./my-app/index.html --name my-static-app --use-local-file
 ```
 
-Requirements: Pake CLI >= 3.0.0
+Hash-based routing works out of the box; history-mode SPA routing is not yet supported for local packaging. Single-file packaging requires Pake CLI >= 3.0.0; directory packaging requires >= 3.15.0.
 
 ## macOS Media Permissions
 
@@ -133,8 +142,8 @@ pake https://chatgpt.com --name ChatGPT --microphone
 pake https://meet.google.com --name GoogleMeet --camera --microphone
 ```
 
-- `--microphone` — grants microphone access (`com.apple.security.device.audio-input`)
-- `--camera` — grants camera access (`com.apple.security.device.camera`)
+- `--microphone`: grants microphone access (`com.apple.security.device.audio-input`)
+- `--camera`: grants camera access (`com.apple.security.device.camera`)
 
 macOS will prompt the user for permission on first use. Only add these flags for sites that actually need them.
 
@@ -191,7 +200,7 @@ Understanding Pake's codebase structure will help you navigate and contribute ef
 
 ### Prerequisites
 
-- Node.js ≥22.0.0 (recommended LTS, older versions ≥18.0.0 may work)
+- Node.js ≥22.0.0 (recommended LTS, older versions ≥20.0.0 may work)
 - Rust ≥1.85.0 (recommended stable)
 
 #### Platform-Specific Requirements
@@ -265,17 +274,7 @@ pnpm run dev
 
 #### CLI Development
 
-For CLI development with hot reloading, modify the `DEFAULT_DEV_PAKE_OPTIONS` configuration in `bin/defaults.ts`:
-
-```typescript
-export const DEFAULT_DEV_PAKE_OPTIONS: PakeCliOptions & { url: string } = {
-  ...DEFAULT_PAKE_OPTIONS,
-  url: "https://weekly.tw93.fun/en",
-  name: "Weekly",
-};
-```
-
-Then run:
+For CLI development with hot reloading, run:
 
 ```bash
 pnpm run cli:dev

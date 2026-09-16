@@ -6,33 +6,38 @@ function matchesAuthUrl(url, baseUrl = window.location.href) {
     const urlObj = new URL(url, baseUrl);
     const hostname = urlObj.hostname.toLowerCase();
     const pathname = urlObj.pathname.toLowerCase();
-    const fullUrl = urlObj.href.toLowerCase();
+    // Host patterns never inspect user-controlled query strings or fragments.
+    const oauthHostPatterns = [
+      /^accounts\.google\.(?:com|[a-z]{2}|com\.[a-z]{2}|co\.[a-z]{2})$/,
+      /^login\.microsoftonline\.com$/,
+      /^appleid\.apple\.com$/,
+    ];
+    // Match complete path segments, including nested identity-provider routes.
+    // /login-tips is content; /tenant/login remains an authentication endpoint.
+    const oauthPathPatterns = [
+      /\/(?:oauth2?|auth|authorize|signin|login|servicelogin)(?:\/|$)/,
+    ];
+    const providerEndpoint =
+      /^(?:www\.)?facebook\.com$/.test(hostname) &&
+      /^\/(?:[^/]+\/)?dialog(?:\/|$)/.test(pathname);
 
-    // Common OAuth providers and paths
-    const oauthPatterns = [
-      /accounts\.google\.com/,
-      /accounts\.google\.[a-z]+/,
-      /login\.microsoftonline\.com/,
-      /github\.com\/login/,
-      /facebook\.com\/.*\/dialog/,
-      /twitter\.com\/oauth/,
-      /appleid\.apple\.com/,
-      /\/oauth\//,
-      /\/auth\//,
-      /\/authorize/,
-      /\/login\/oauth/,
-      /\/signin/,
-      /\/login/,
-      /servicelogin/,
-      /\/o\/oauth2/,
+    // Enterprise SSO. Match identity providers on the host, and SAML/SSO/ADFS on
+    // the pathname with endpoint-shaped patterns only, so ordinary pages such as
+    // /settings/sso/providers (or a query string carrying an SSO URL) are not
+    // misread as authentication.
+    const enterpriseHostPatterns = [/(^|\.)okta\.com$/, /(^|\.)onelogin\.com$/];
+    const enterprisePathPatterns = [
+      /\/saml2?\/(sso|acs|login|metadata|consume|redirect|callback|continue)/,
+      /\/sso\/(saml|oidc|oauth|login|authorize|redirect|callback|acs|start|continue|metadata)/,
+      /\/adfs\/ls\b/,
     ];
 
-    const isMatch = oauthPatterns.some(
-      (pattern) =>
-        pattern.test(hostname) ||
-        pattern.test(pathname) ||
-        pattern.test(fullUrl),
-    );
+    const isMatch =
+      oauthHostPatterns.some((pattern) => pattern.test(hostname)) ||
+      oauthPathPatterns.some((pattern) => pattern.test(pathname)) ||
+      providerEndpoint ||
+      enterpriseHostPatterns.some((pattern) => pattern.test(hostname)) ||
+      enterprisePathPatterns.some((pattern) => pattern.test(pathname));
 
     if (isMatch) {
       console.log("[Pake] OAuth URL detected:", url);
